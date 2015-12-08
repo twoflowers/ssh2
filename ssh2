@@ -1,10 +1,12 @@
 #!/usr/bin/env python
-import subprocess, json, os, sys
+import subprocess, json, os, sys, time
 from optparse import OptionParser
+from datetime import datetime, timedelta
 
 cache_file_list = '/tmp/.ssh2_list'
 cache_file_num = '/tmp/.ssh2_num'
 ssh_key_ident = os.environ['HOME'] + "/.ssh"
+days_to_expire_cache = 1
 
 usage = "usage: %prog [options] [server_number]\n\
          server_number: a numeric value corresponding to the server number\n\
@@ -28,6 +30,11 @@ parser.add_option(
     help="provide the identity file"
 )
 
+parser.add_option(
+    "-n", "--name", action="store",
+    help="use the instance name to connect"
+)
+
 (options, args) = parser.parse_args()
 
 num = ''
@@ -44,11 +51,22 @@ def extract_name(instance):
                 return tag['Value']
     return '.'
 
-if options.bust_cache or not os.path.exists(cache_file_list):
+def rebuild_cache():
     print "Fetching servers..."
     output = subprocess.Popen("aws ec2 describe-instances", shell=True, stdout=subprocess.PIPE).stdout.read()
     with open(cache_file_list, 'w') as f:
         f.write(output)
+
+# check the last time that the file was generated, if it was greater than x go ahead and rebuild
+cahce_last_modified = datetime.fromtimestamp(os.path.getctime(cache_file_list))# time.ctime(os.path.getmtime(cache_file_list))
+expire_cache_max = datetime.now() - timedelta(days=days_to_expire_cache)
+
+if cahce_last_modified < expire_cache_max:
+    rebuild_cache()
+
+
+if options.bust_cache or not os.path.exists(cache_file_list):
+    rebuild_cache()
 
 if options.ident or not os.path.exists(cache_file_list):
     for file in os.listdir(ssh_key_ident):
@@ -57,6 +75,19 @@ if options.ident or not os.path.exists(cache_file_list):
                 ident_key = file
             else:
                 ident_key = ''
+
+if options.name:
+    ''' we are going to use the name '''
+
+    # sanity check the name
+
+    # make sure that the name is in the list
+
+    # pass in the value
+
+
+
+
 
 output = open(cache_file_list).read()
 parsed = json.loads(output)
