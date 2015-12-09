@@ -44,6 +44,10 @@ if args:
         sys.exit()
     num = int(args[0])
 
+def do_our_files_exist(filename):
+    return os.path.isfile(filename)
+
+
 def extract_name(instance):
     if instance['Tags']:
         for tag in instance['Tags']:
@@ -56,6 +60,10 @@ def rebuild_cache():
     output = subprocess.Popen("aws ec2 describe-instances", shell=True, stdout=subprocess.PIPE).stdout.read()
     with open(cache_file_list, 'w') as f:
         f.write(output)
+
+if not do_our_files_exist(cache_file_list):
+    print 'file does not exist, let me get that started for you\n'
+    rebuild_cache()
 
 # check the last time that the file was generated, if it was greater than x go ahead and rebuild
 cahce_last_modified = datetime.fromtimestamp(os.path.getctime(cache_file_list))# time.ctime(os.path.getmtime(cache_file_list))
@@ -85,36 +93,45 @@ if options.name:
 
     # pass in the value
 
+def display():
+    output = open(cache_file_list).read()
+    parsed = json.loads(output)
 
+    all_instances = []
+    for instances in parsed['Reservations']:
+        for instance in instances['Instances']:
+            all_instances.append(instance)
 
-
-
-output = open(cache_file_list).read()
-parsed = json.loads(output)
-
-all_instances = []
-for instances in parsed['Reservations']:
-    for instance in instances['Instances']:
-        all_instances.append(instance)
-
-if not num:
     print "\nServers list:\n"
+    print '[%s] %-55s' % (0, 'Rebuild Cache')
     for i, instance in enumerate(all_instances, 1):
-        choice = '[%d]' % i
-        name = extract_name(instance)
-        print '%-4s %-55s %-30s' % (choice, instance['PublicDnsName'], name)
+        print '[%s] %-55s %-30s' % (i, instance['PublicDnsName'], extract_name(instance))
 
-default_num = 1
-if os.path.exists(cache_file_num):
-    default_num = open(cache_file_num).read()
+    return i, all_instances
 
+def prompt(question):
+    return raw_input(question)
+
+default_num = 0
 ok = not not num
 
 while not ok or not num:
-    try:
-        num = raw_input("\nWhich server would you like to connect to [" + str(default_num) + "]? ")
 
-        if not num:
+    try:
+        i, all_instances = display()
+        num = prompt("\nWhich server would you like to connect to [" + str(default_num) + "], 'x' to quit? ")
+
+        # a control to break out, just in case
+        if num == 'x':
+            print "Exiting, Later ..."
+            sys.exit()
+
+        # a control to rebuild the cache
+        if num == '0':
+            rebuild_cache()
+
+
+        if not num and num != 'x':
             num = int(default_num)
             break
 
@@ -124,7 +141,8 @@ while not ok or not num:
             num = int(num)
             break
 
-        print "ERR: please enter a value between 1 and " + str(i)
+        # print "ERR: please enter a value between 1 and " + str(i)
+
 
     except (EOFError, KeyboardInterrupt) as e:
         print "\nExiting..."
