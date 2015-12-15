@@ -93,7 +93,7 @@ if options.name:
 
     # pass in the value
 
-def display():
+def display(display_text=True):
     output = open(cache_file_list).read()
     parsed = json.loads(output)
 
@@ -101,11 +101,12 @@ def display():
     for instances in parsed['Reservations']:
         for instance in instances['Instances']:
             all_instances.append(instance)
-
-    print "\nServers list:\n"
-    print '[%s] %-55s' % (0, 'Rebuild Cache')
-    for i, instance in enumerate(all_instances, 1):
-        print '[%s] %-55s %-30s' % (i, instance['PublicDnsName'], extract_name(instance))
+    i = 0
+    if display_text:
+        print "\nServers list:\n"
+        print '[%s] %-55s' % (0, 'Rebuild Cache')
+        for i, instance in enumerate(all_instances, 1):
+            print '[%s] %-55s %-30s' % (i, instance['PublicDnsName'], extract_name(instance))
 
     return i, all_instances
 
@@ -151,6 +152,8 @@ while not ok or not num:
 with open(cache_file_num, 'w') as f:
     f.write(str(num))
 
+
+i, all_instances = display(False)
 instance = all_instances[num - 1]
 dns = instance['PublicDnsName']
 
